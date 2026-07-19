@@ -144,7 +144,7 @@ func (s *tableScene) beginPress(pos image.Point) {
 	if !ok {
 		// empty stock slot still taps (Klondike recycle)
 		if spi, sok := s.layout.hitPile(s.g, pos); sok && s.g.Piles[spi].Kind == solitaire.Stock {
-			pi, idx, ok = spi, -1, true
+			pi, idx = spi, -1
 		} else {
 			s.pressed = false
 			return
