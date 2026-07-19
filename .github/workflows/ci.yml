@@ -1,0 +1,51 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install ebiten build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config xvfb
+      - run: go build ./...
+      # ebiten's init needs a display the moment internal/ui gains a test
+      # file; internal/solitaire must stay headless (zero ebiten imports).
+      - run: xvfb-run -a go test -race -timeout 300s ./...
+      - run: go vet ./...
+      - name: WASM compile check
+        run: GOOS=js GOARCH=wasm go build -o /dev/null .
+  # Complexity ratchet: fails a PR when a function it CHANGES exceeds the
+  # cognitive threshold. Existing hotspots only fail once touched.
+  complexity:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the diff gate needs the merge-base
+      - uses: richardwooding/codemetrics@v0.12.1
+        with:
+          max-cognitive: "15"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install ebiten build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
