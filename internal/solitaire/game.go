@@ -229,8 +229,14 @@ func (g *Game) exposesFaceDown(m Move) bool {
 // firstSafeSend returns the first safe foundation send, computing the
 // board-wide safe set once (it does not depend on any single candidate move).
 func (g *Game) firstSafeSend() (Move, bool) {
-	if sends := safeFoundationSends(g); len(sends) > 0 {
-		return sends[0], true
+	// safeFoundationSends uses the generic suit-ascending foundation rule, which
+	// does not hold for every variant (Pyramid's foundation takes only Kings,
+	// Golf's builds by rank), so confirm each candidate is actually legal before
+	// hinting it.
+	for _, s := range safeFoundationSends(g) {
+		if g.Legal(s) {
+			return s, true
+		}
 	}
 	return Move{}, false
 }

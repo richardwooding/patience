@@ -79,6 +79,27 @@ func TestPyramidKingAndPairRules(t *testing.T) {
 	}
 }
 
+func TestPyramidHintIsLegal(t *testing.T) {
+	g := New(NewPyramid(), 9)
+	for i := range 28 {
+		setPile(g, pyramidBase+i) // clear to a controlled bottom-row state
+	}
+	// An exposed Ace: the generic safe-send rule flags Ace→empty-foundation,
+	// but that is illegal in Pyramid (the foundation takes only Kings). A real
+	// legal pair (9 + 4) also exists, and the hint must point at a legal move.
+	setPile(g, pyramidBase+21, up(Diamonds, 1)) // exposed Ace
+	setPile(g, pyramidBase+22, up(Spades, 9))
+	setPile(g, pyramidBase+23, up(Hearts, 4)) // 9 + 4 = 13
+
+	m, ok := g.Hint()
+	if !ok {
+		t.Fatal("expected a hint")
+	}
+	if !g.Legal(m) {
+		t.Fatalf("hint returned an illegal move: %+v", m)
+	}
+}
+
 func TestPyramidStockRecycle(t *testing.T) {
 	g := New(NewPyramid(), 9)
 	stock0 := len(g.Piles[0].Cards)
