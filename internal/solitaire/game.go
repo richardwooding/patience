@@ -177,15 +177,17 @@ func (g *Game) flipExposed() {
 // exists (the stock, if any, may still be tappable — see AnyLegalMove).
 func (g *Game) Hint() (Move, bool) {
 	moves := g.legalMoves()
-	for _, useful := range []func(*Game, Move) bool{
-		(*Game).exposesFaceDown,
-		(*Game).isSafeFoundationSend,
-		(*Game).buildsOnPile,
-	} {
-		for _, m := range moves {
-			if useful(g, m) {
-				return m, true
-			}
+	for _, m := range moves {
+		if g.exposesFaceDown(m) {
+			return m, true
+		}
+	}
+	if s, ok := g.firstSafeSend(); ok {
+		return s, true
+	}
+	for _, m := range moves {
+		if g.buildsOnPile(m) {
+			return m, true
 		}
 	}
 	if len(moves) > 0 {
@@ -224,17 +226,13 @@ func (g *Game) exposesFaceDown(m Move) bool {
 	return src.Kind == Tableau && m.Idx > 0 && !src.Cards[m.Idx-1].FaceUp()
 }
 
-// isSafeFoundationSend reports whether m is one of the safe foundation sends.
-func (g *Game) isSafeFoundationSend(m Move) bool {
-	if g.Piles[m.Dst].Kind != Foundation {
-		return false
+// firstSafeSend returns the first safe foundation send, computing the
+// board-wide safe set once (it does not depend on any single candidate move).
+func (g *Game) firstSafeSend() (Move, bool) {
+	if sends := safeFoundationSends(g); len(sends) > 0 {
+		return sends[0], true
 	}
-	for _, s := range safeFoundationSends(g) {
-		if s == m {
-			return true
-		}
-	}
-	return false
+	return Move{}, false
 }
 
 // buildsOnPile reports whether m stacks onto a non-empty, non-foundation pile
