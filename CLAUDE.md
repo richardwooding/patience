@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 patience is a multi-variant solitaire game: a pure-Go rules engine under an
-Ebitengine front end. Six configurations across three rule families —
-Klondike draw-1/3, FreeCell, Spider 1/2/4 suits. One codebase runs native
-(`go run .`, the dev loop) and as WebAssembly on GitHub Pages
+Ebitengine front end. Eight configurations across five rule families —
+Klondike draw-1/3, FreeCell, Spider 1/2/4 suits, Golf, Pyramid. One codebase
+runs native (`go run .`, the dev loop) and as WebAssembly on GitHub Pages
 (https://richardwooding.github.io/patience/play/).
 
 ## Commands
@@ -55,6 +55,19 @@ goldens depend on that.
 - **FreeCell supermoves**: capacity `(freeCells+1) << emptyCols`, halved when
   the destination itself is an empty column (the `ti != dst` exclusion in
   `capacity()` — there's a dedicated off-by-one test).
+- **Golf** (`golf.go`): 7 columns of 5, one foundation built ±1 rank (no
+  wrap), stock deals to the foundation. A clean fit for the Move model — every
+  move is a tableau top onto the single Foundation pile.
+- **Pyramid** (`pyramid.go`): 28 slots in a 7-row triangle, row-major from
+  `pyramidBase` (pile 3). A slot is `exposed` when both covering child piles
+  are empty (precomputed `children[28][2]`). Pairs summing to 13 are played by
+  *dropping* one exposed card onto another (or from the waste); AfterMove
+  sweeps any slot left holding a sum-13 pair to the foundation, and a lone King
+  drops straight to the foundation. This reuses the ordinary Move machinery, so
+  undo/win need no special cases. In the UI, slots are laid out row-major so
+  the existing `hitCard`/draw order handles the overlap (lower rows draw on top
+  and win hit-tests); empty pyramid slots set `hideSlot` so a cleared card
+  leaves a gap, not an outline.
 - **Safe auto-send rule** (`safeFoundationSends`): a card may auto-send when
   rank ≤ 2 or both opposite-color foundations have reached rank−1; the floor
   is 0 until at least 2 same-color foundations are started. Double-tap uses

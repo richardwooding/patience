@@ -540,6 +540,9 @@ func (s *tableScene) drawPile(dst *ebiten.Image, pi, hide int) {
 	visible := len(p.Cards) - hide
 
 	if visible <= 0 {
+		if s.layout.piles[pi].hideSlot {
+			return // a cleared pyramid slot leaves a gap, not an outline
+		}
 		slot := s.layout.piles[pi].pos
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(slot.X), float64(slot.Y))
