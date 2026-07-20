@@ -1,8 +1,8 @@
 # patience
 
-Retro solitaire in your browser — Klondike (draw 1/3), FreeCell, and Spider
-(1/2/4 suits) on a chunky pixel-art deck, written entirely in Go and compiled
-to WebAssembly.
+Retro solitaire in your browser — Klondike (draw 1/3), FreeCell, Spider
+(1/2/4 suits), Golf, and Pyramid on a chunky pixel-art deck, written entirely
+in Go and compiled to WebAssembly.
 
 **Play it: https://richardwooding.github.io/patience/play/**
 
@@ -10,9 +10,10 @@ to WebAssembly.
 
 ## Features
 
-- **Six configurations, three rule families** — Klondike draw-1 and draw-3,
+- **Eight configurations, five rule families** — Klondike draw-1/draw-3,
   FreeCell with true supermove capacity (including the empty-column halving),
-  and Spider at 1, 2, or 4 suits.
+  Spider at 1/2/4 suits, Golf (build the foundation up or down by rank), and
+  Pyramid (clear a triangle by pairing exposed cards that sum to 13).
 - **Pixel-art deck drawn in code** — 71×96 cards (the exact dimensions of
   Windows 3.0's CARDS.DLL), hand-drawn 16×16 suit pips, a purple lattice back.
   No image assets anywhere.
@@ -48,7 +49,8 @@ to WebAssembly.
 
 Deep-link a variant with `?v=` — e.g.
 [`play/?v=freecell`](https://richardwooding.github.io/patience/play/?v=freecell),
-`?v=klondike-1`, `?v=klondike-3`, `?v=spider-1`, `?v=spider-2`, `?v=spider-4`.
+`?v=klondike-1`, `?v=klondike-3`, `?v=spider-1`, `?v=spider-2`, `?v=spider-4`,
+`?v=golf`, `?v=pyramid`.
 Add `&d=<n>` to open a specific daily deal (this is what shared daily links
 do); pressing `D` in the menu toggles daily mode for today.
 

@@ -22,9 +22,10 @@ const (
 
 // pileLayout is one pile's screen geometry.
 type pileLayout struct {
-	pos     image.Point
-	fanned  bool // vertical tableau fan
-	isWaste bool // horizontal 3-card fan
+	pos      image.Point
+	fanned   bool // vertical tableau fan
+	isWaste  bool // horizontal 3-card fan
+	hideSlot bool // draw nothing when empty (removed pyramid cards leave a gap)
 }
 
 // tableLayout maps every pile index to geometry for the current variant.
@@ -34,45 +35,92 @@ type tableLayout struct {
 
 // layoutFor builds the pile geometry table for a variant's layout order.
 func layoutFor(rules solitaire.Rules) tableLayout {
-	kinds := rules.Layout()
-	tl := tableLayout{piles: make([]pileLayout, len(kinds))}
-
+	tl := tableLayout{piles: make([]pileLayout, len(rules.Layout()))}
 	switch rules.ID() {
 	case solitaire.FreeCellV:
-		pitch := 87
-		left := (W - (8*CardW + 7*(pitch-CardW))) / 2
-		for i := range 4 { // cells
-			tl.piles[i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop)}
-		}
-		for i := range 4 { // foundations
-			tl.piles[4+i] = pileLayout{pos: image.Pt(left+(4+i)*pitch, tableTop)}
-		}
-		for i := range 8 { // tableau
-			tl.piles[8+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
-		}
+		layoutFreeCell(&tl)
 	case solitaire.Spider1, solitaire.Spider2, solitaire.Spider4:
-		pitch := 79
-		left := (W - (10*CardW + 9*(pitch-CardW))) / 2
-		tl.piles[0] = pileLayout{pos: image.Pt(W-CardW-16, tableTop)} // stock
-		for i := range 8 {                                            // foundations, compact row
-			tl.piles[1+i] = pileLayout{pos: image.Pt(16+i*40, tableTop)}
-		}
-		for i := range 10 { // tableau
-			tl.piles[9+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
-		}
-	default: // Klondike
-		pitch := 96
-		left := (W - (7*CardW + 6*(pitch-CardW))) / 2
-		tl.piles[0] = pileLayout{pos: image.Pt(left, tableTop)}                      // stock
-		tl.piles[1] = pileLayout{pos: image.Pt(left+pitch, tableTop), isWaste: true} // waste
-		for i := range 4 {                                                           // foundations
-			tl.piles[2+i] = pileLayout{pos: image.Pt(left+(3+i)*pitch, tableTop)}
-		}
-		for i := range 7 { // tableau
-			tl.piles[6+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
-		}
+		layoutSpider(&tl)
+	case solitaire.GolfV:
+		layoutGolf(&tl)
+	case solitaire.PyramidV:
+		layoutPyramid(&tl)
+	default:
+		layoutKlondike(&tl)
 	}
 	return tl
+}
+
+func layoutFreeCell(tl *tableLayout) {
+	pitch := 87
+	left := (W - (8*CardW + 7*(pitch-CardW))) / 2
+	for i := range 4 { // cells
+		tl.piles[i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop)}
+	}
+	for i := range 4 { // foundations
+		tl.piles[4+i] = pileLayout{pos: image.Pt(left+(4+i)*pitch, tableTop)}
+	}
+	for i := range 8 { // tableau
+		tl.piles[8+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
+	}
+}
+
+func layoutSpider(tl *tableLayout) {
+	pitch := 79
+	left := (W - (10*CardW + 9*(pitch-CardW))) / 2
+	tl.piles[0] = pileLayout{pos: image.Pt(W-CardW-16, tableTop)} // stock
+	for i := range 8 {                                            // foundations, compact row
+		tl.piles[1+i] = pileLayout{pos: image.Pt(16+i*40, tableTop)}
+	}
+	for i := range 10 { // tableau
+		tl.piles[9+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
+	}
+}
+
+func layoutGolf(tl *tableLayout) {
+	pitch := 96
+	left := (W - (7*CardW + 6*(pitch-CardW))) / 2
+	tl.piles[0] = pileLayout{pos: image.Pt(left, tableTop)}         // stock
+	tl.piles[1] = pileLayout{pos: image.Pt(left+2*pitch, tableTop)} // foundation
+	for i := range 7 {                                              // tableau
+		tl.piles[2+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
+	}
+}
+
+func layoutKlondike(tl *tableLayout) {
+	pitch := 96
+	left := (W - (7*CardW + 6*(pitch-CardW))) / 2
+	tl.piles[0] = pileLayout{pos: image.Pt(left, tableTop)}                      // stock
+	tl.piles[1] = pileLayout{pos: image.Pt(left+pitch, tableTop), isWaste: true} // waste
+	for i := range 4 {                                                           // foundations
+		tl.piles[2+i] = pileLayout{pos: image.Pt(left+(3+i)*pitch, tableTop)}
+	}
+	for i := range 7 { // tableau
+		tl.piles[6+i] = pileLayout{pos: image.Pt(left+i*pitch, tableTop+CardH+12), fanned: true}
+	}
+}
+
+// pyramidSlot0 is the pile index of the first pyramid slot (matches the
+// solitaire package's layout: 0=stock, 1=waste, 2=foundation, 3.. = 28 slots).
+const pyramidSlot0 = 3
+
+// layoutPyramid places the 28 triangular slots (row-major, overlapping) with a
+// stock/waste/foundation control row below.
+func layoutPyramid(tl *tableLayout) {
+	const dx, dy = 40, 42
+	apexX := W/2 - CardW/2
+	for r := range 7 {
+		for c := 0; c <= r; c++ {
+			k := r*(r+1)/2 + c
+			pos := image.Pt(apexX+(2*c-r)*dx, tableTop+r*dy)
+			tl.piles[pyramidSlot0+k] = pileLayout{pos: pos, hideSlot: true}
+		}
+	}
+	ctrlY := tableTop + 6*dy + CardH + 16
+	cx := W/2 - CardW/2
+	tl.piles[0] = pileLayout{pos: image.Pt(cx-160, ctrlY)}               // stock
+	tl.piles[1] = pileLayout{pos: image.Pt(cx-20, ctrlY), isWaste: true} // waste
+	tl.piles[2] = pileLayout{pos: image.Pt(cx+200, ctrlY)}               // foundation
 }
 
 // positions computes every card's screen position in pile pi.

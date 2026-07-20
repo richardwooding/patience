@@ -15,7 +15,7 @@ import (
 
 const (
 	menuListY = 200
-	menuRowH  = 52
+	menuRowH  = 46
 )
 
 // newSeed picks a fresh deal seed.

@@ -10,6 +10,8 @@ const (
 	Spider1   VariantID = "spider-1"
 	Spider2   VariantID = "spider-2"
 	Spider4   VariantID = "spider-4"
+	GolfV     VariantID = "golf"
+	PyramidV  VariantID = "pyramid"
 )
 
 // Rules is the variant abstraction: pure predicates plus a few behavioral
@@ -35,6 +37,8 @@ func Variants() []Rules {
 		NewKlondike(1), NewKlondike(3),
 		NewFreeCell(),
 		NewSpider(1), NewSpider(2), NewSpider(4),
+		NewGolf(),
+		NewPyramid(),
 	}
 }
 
