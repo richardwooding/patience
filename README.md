@@ -21,6 +21,10 @@ to WebAssembly.
 - **Safe auto-complete** — double-tap sends a card to its foundation; `A`
   finishes a won game using the classic safe-send rule so it never strands a
   card you still need.
+- **Daily deals** — flip on "daily deal" in the menu to play each variant's
+  deal of the day: the same shuffle for everyone, seeded from the date. Win it
+  and copy a shareable result (moves, clean-solve flair, and your day streak)
+  to the clipboard.
 - **The classic win cascade** — cards launch from the foundations, bounce, and
   leave trails.
 - **Touch-first** — drag with mouse or finger; drop targeting uses card
@@ -45,6 +49,8 @@ to WebAssembly.
 Deep-link a variant with `?v=` — e.g.
 [`play/?v=freecell`](https://richardwooding.github.io/patience/play/?v=freecell),
 `?v=klondike-1`, `?v=klondike-3`, `?v=spider-1`, `?v=spider-2`, `?v=spider-4`.
+Add `&d=<n>` to open a specific daily deal (this is what shared daily links
+do); pressing `D` in the menu toggles daily mode for today.
 
 ## Run locally
 

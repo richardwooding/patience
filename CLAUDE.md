@@ -80,6 +80,18 @@ goldens depend on that.
   headless screenshots reach table scenes (headless Chrome needs
   `--use-angle=swiftshader --enable-unsafe-swiftshader` for WebGL2).
 - Stats are build-tagged: localStorage (js) / `os.UserConfigDir()` (native).
+  The persisted shape is `{variants, daily}`; `ensure()` migrates legacy files
+  that were a bare `map[string]Entry`. Daily streak math lives in the pure
+  `applyWin` helper (unit-tested); `RecordDailyWin` just persists its result.
+- **Daily deals**: `solitaire.DayNumber(now)` is the local-calendar day count
+  from a FROZEN epoch (2026-01-01); `solitaire.DailySeed(id, day)` is a frozen
+  FNV-1a + splitmix64 mix — both guarded by committed golden tests, because the
+  seed is shared across players and baked into share links. **Never change the
+  epoch or the mix.** The menu toggles daily mode (`D`); `newDailyScene`
+  seeds from `DailySeed`; `?v=<id>&d=<day>` deep-links a specific daily.
+- Share blurb: pure `internal/share.Text` (emoji OK — it goes to the clipboard,
+  not the bitmap-font canvas, which stays ASCII); `copyToClipboard` is
+  build-tagged (navigator.clipboard on js, stdout natively).
 - `Game.Hint()` ranks legal card moves (expose face-down > safe send >
   build on a non-empty pile > any) and drives the `H` key / hint button,
   which blinks `accentOutline` on the move's source and destination. The
