@@ -17,12 +17,27 @@ type Game struct {
 	scene scene
 }
 
+// startConfig is a parsed deep-link from the page URL.
+type startConfig struct {
+	variant string
+	day     int
+	daily   bool
+}
+
+// playBase is the deployed play page, used to build shareable daily links.
+const playBase = "https://richardwooding.github.io/patience/play/"
+
 func NewGame() *Game {
-	if id := autostartVariant(); id != "" {
+	cfg := autostartConfig()
+	if cfg.variant != "" {
 		for _, v := range solitaire.Variants() {
-			if string(v.ID()) == id {
-				return &Game{scene: newTableScene(v, newSeed())}
+			if string(v.ID()) != cfg.variant {
+				continue
 			}
+			if cfg.daily {
+				return &Game{scene: newDailyScene(v, cfg.day)}
+			}
+			return &Game{scene: newTableScene(v, newSeed())}
 		}
 	}
 	return &Game{scene: newMenuScene()}

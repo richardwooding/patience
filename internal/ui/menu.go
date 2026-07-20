@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math/rand/v2"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -20,15 +21,21 @@ const (
 // newSeed picks a fresh deal seed.
 func newSeed() uint64 { return rand.Uint64() }
 
-// menuScene picks a variant.
+// menuScene picks a variant, casual or daily.
 type menuScene struct {
 	selected int
+	daily    bool
+	today    int
+	btnDaily button
 	ptr      pointer
 }
 
 func newMenuScene() *menuScene {
 	ensureSprites()
-	return &menuScene{}
+	return &menuScene{
+		today:    solitaire.DayNumber(time.Now()),
+		btnDaily: button{x: W/2 - 90, y: 164, w: 180, h: 28, label: "daily deal: off"},
+	}
 }
 
 func (m *menuScene) Update(g *Game) error {
@@ -40,20 +47,33 @@ func (m *menuScene) Update(g *Game) error {
 	if !pressed {
 		return nil
 	}
+	if m.btnDaily.hit([]image.Point{pos}) {
+		m.daily = !m.daily
+		return nil
+	}
 	i, ok := menuRowAt(pos, len(variants))
 	if !ok {
 		return nil
 	}
 	if m.selected == i {
-		g.scene = newTableScene(variants[i], newSeed())
+		m.start(g, variants[i])
 		return nil
 	}
 	m.selected = i
 	return nil
 }
 
-// handleKeys moves the selection and deals on enter/space; reports whether
-// the scene changed.
+// start opens the selected variant, daily or casual.
+func (m *menuScene) start(g *Game, v solitaire.Rules) {
+	if m.daily {
+		g.scene = newDailyScene(v, m.today)
+		return
+	}
+	g.scene = newTableScene(v, newSeed())
+}
+
+// handleKeys moves the selection, toggles daily, and deals on enter/space;
+// reports whether the scene changed.
 func (m *menuScene) handleKeys(g *Game, variants []solitaire.Rules) bool {
 	if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) && m.selected < len(variants)-1 {
 		m.selected++
@@ -61,8 +81,11 @@ func (m *menuScene) handleKeys(g *Game, variants []solitaire.Rules) bool {
 	if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) && m.selected > 0 {
 		m.selected--
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
+		m.daily = !m.daily
+	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		g.scene = newTableScene(variants[m.selected], newSeed())
+		m.start(g, variants[m.selected])
 		return true
 	}
 	return false
@@ -86,6 +109,8 @@ func (m *menuScene) Draw(dst *ebiten.Image) {
 	sub := "retro solitaire — 100% Go, in your browser"
 	drawText(dst, sub, (W-textWidth(sub, 2))/2, 136, colDim, 2)
 
+	m.drawDailyToggle(dst)
+
 	for i, v := range solitaire.Variants() {
 		y := float64(menuListY + i*menuRowH)
 		if i == m.selected {
@@ -94,16 +119,42 @@ func (m *menuScene) Draw(dst *ebiten.Image) {
 			drawText(dst, "▶", 220, y+6, colAccent, 2)
 		}
 		drawText(dst, v.Name(), 252, y+6, colText, 2)
-		st := stats.Get(string(v.ID()))
-		if st.Played > 0 {
-			line := fmt.Sprintf("won %d/%d", st.Won, st.Played)
-			if st.BestMoves > 0 {
-				line += fmt.Sprintf(" · best %d moves", st.BestMoves)
-			}
+		if line := m.rowStat(string(v.ID())); line != "" {
 			drawText(dst, line, W-220-textWidth(line, 1), y+12, colDim, 1)
 		}
 	}
 
-	foot := "tap/enter to deal · in game: u undo · r restart · a auto-finish · esc menu"
+	foot := "tap/enter to deal · d daily · in game: u undo · h hint · a auto-finish · esc menu"
 	drawText(dst, foot, (W-textWidth(foot, 1))/2, H-32, colDimmer, 1)
+}
+
+func (m *menuScene) drawDailyToggle(dst *ebiten.Image) {
+	m.btnDaily.label = "daily deal: off"
+	if m.daily {
+		m.btnDaily.label = fmt.Sprintf("daily deal: on · #%d", m.today)
+	}
+	m.btnDaily.draw(dst, m.daily)
+}
+
+// rowStat is the right-aligned per-variant line: daily streak in daily mode,
+// else the casual win record.
+func (m *menuScene) rowStat(id string) string {
+	if m.daily {
+		d := stats.GetDaily(id)
+		if d.SolvedToday(m.today) {
+			return fmt.Sprintf("solved today · streak %d", d.Streak)
+		}
+		if d.Wins > 0 {
+			return fmt.Sprintf("streak %d · best streak %d", d.Streak, d.MaxStreak)
+		}
+		return "play today's deal"
+	}
+	st := stats.Get(id)
+	if st.Played == 0 {
+		return ""
+	}
+	if st.BestMoves > 0 {
+		return fmt.Sprintf("won %d/%d · best %d moves", st.Won, st.Played, st.BestMoves)
+	}
+	return fmt.Sprintf("won %d/%d", st.Won, st.Played)
 }

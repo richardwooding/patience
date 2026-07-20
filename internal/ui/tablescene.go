@@ -47,10 +47,27 @@ type tableScene struct {
 	dead          bool
 	deadCheckedAt int
 
+	// daily deal: dailyDay > 0 marks this as variant's daily; counters feed
+	// the shareable result captured in winData on a win.
+	dailyDay  int
+	undosUsed int
+	hintsUsed int
+	winData   winInfo
+
 	btnNew, btnRestart, btnUndo, btnHint, btnAuto, btnMenu button
 }
 
+// newTableScene starts a casual (random-seed) deal.
 func newTableScene(rules solitaire.Rules, seed uint64) *tableScene {
+	return newScene(rules, seed, 0)
+}
+
+// newDailyScene starts a variant's daily deal for the given day number.
+func newDailyScene(rules solitaire.Rules, day int) *tableScene {
+	return newScene(rules, solitaire.DailySeed(rules.ID(), day), day)
+}
+
+func newScene(rules solitaire.Rules, seed uint64, dailyDay int) *tableScene {
 	ensureSprites()
 	s := &tableScene{
 		g:             solitaire.New(rules, seed),
@@ -58,8 +75,11 @@ func newTableScene(rules solitaire.Rules, seed uint64) *tableScene {
 		autoLeft:      -1,
 		dropCandidate: -1,
 		deadCheckedAt: -1,
+		dailyDay:      dailyDay,
 	}
-	stats.Record(string(rules.ID()), stats.Dealt)
+	if dailyDay == 0 {
+		stats.Record(string(rules.ID()), stats.Dealt)
+	}
 	const bw, bh, gap = 76, 24, 8
 	x := 8
 	place := func(b *button, label string) {
@@ -129,10 +149,10 @@ func (s *tableScene) handleKeys(g *Game) bool {
 	case inpututil.IsKeyJustPressed(ebiten.KeyU):
 		s.undo()
 	case inpututil.IsKeyJustPressed(ebiten.KeyN):
-		g.scene = newTableScene(s.g.Rules, newSeed())
+		s.reNew(g)
 		return true
 	case inpututil.IsKeyJustPressed(ebiten.KeyR):
-		g.scene = newTableScene(s.g.Rules, s.g.Seed)
+		s.reRestart(g)
 		return true
 	case inpututil.IsKeyJustPressed(ebiten.KeyA):
 		s.startAutoComplete()
@@ -147,9 +167,30 @@ func (s *tableScene) handleKeys(g *Game) bool {
 
 func (s *tableScene) undo() {
 	s.autoLeft = -1
-	if !s.g.Undo() {
+	if s.g.Undo() {
+		s.undosUsed++
+	} else {
 		s.say("nothing to undo")
 	}
+}
+
+// reNew starts a fresh deal — a new daily is the same day's deal (there is
+// only one), so it re-deals it; a casual game gets a new random seed.
+func (s *tableScene) reNew(g *Game) {
+	if s.dailyDay > 0 {
+		g.scene = newDailyScene(s.g.Rules, s.dailyDay)
+		return
+	}
+	g.scene = newTableScene(s.g.Rules, newSeed())
+}
+
+// reRestart re-deals the current deal from scratch.
+func (s *tableScene) reRestart(g *Game) {
+	if s.dailyDay > 0 {
+		g.scene = newDailyScene(s.g.Rules, s.dailyDay)
+		return
+	}
+	g.scene = newTableScene(s.g.Rules, s.g.Seed)
 }
 
 func (s *tableScene) say(msg string) {
@@ -165,10 +206,12 @@ func (s *tableScene) hint() {
 	}
 	if m, ok := s.g.Hint(); ok {
 		s.hintSrc, s.hintDst, s.hintTTL = m.Src, m.Dst, 96
+		s.hintsUsed++
 		return
 	}
 	if si, ok := s.stockPile(); ok && s.g.AnyLegalMove() {
 		s.hintSrc, s.hintDst, s.hintTTL = si, si, 96
+		s.hintsUsed++
 		return
 	}
 	s.say("no moves left — undo, restart, or new deal")
@@ -269,10 +312,10 @@ func (s *tableScene) endPress(g *Game, pos image.Point) {
 	taps := []image.Point{pos}
 	switch {
 	case s.btnNew.hit(taps):
-		g.scene = newTableScene(s.g.Rules, newSeed())
+		s.reNew(g)
 		return
 	case s.btnRestart.hit(taps):
-		g.scene = newTableScene(s.g.Rules, s.g.Seed)
+		s.reRestart(g)
 		return
 	case s.btnUndo.hit(taps):
 		s.undo()
@@ -405,14 +448,26 @@ func (s *tableScene) stepFlights() {
 }
 
 func (s *tableScene) win() {
-	stats.Record(string(s.g.Rules.ID()), stats.WonIn(s.g.MoveCount))
+	id := string(s.g.Rules.ID())
+	if s.dailyDay > 0 {
+		d := stats.RecordDailyWin(id, s.dailyDay, s.g.MoveCount)
+		s.winData = winInfo{
+			g: s.g, daily: true, day: s.dailyDay,
+			undos: s.undosUsed, hints: s.hintsUsed,
+			streak: d.Streak, maxStreak: d.MaxStreak,
+			shareURL: fmt.Sprintf("%s?v=%s&d=%d", playBase, id, s.dailyDay),
+		}
+	} else {
+		stats.Record(id, stats.WonIn(s.g.MoveCount))
+		s.winData = winInfo{g: s.g}
+	}
 	s.cascade = newCascade(s.g, s.layout)
 }
 
 func (s *tableScene) updateCascade(g *Game) error {
 	_, pressed, _, _ := s.ptr.state()
 	if s.cascade.Update() || pressed || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		g.scene = newWinOverlay(s.g)
+		g.scene = newWinOverlay(s.winData)
 	}
 	return nil
 }
@@ -527,5 +582,8 @@ func (s *tableScene) drawToolbar(dst *ebiten.Image) {
 	s.btnAuto.draw(dst, s.g.Rules.AutoCompleteReady(s.g))
 	s.btnMenu.draw(dst, false)
 	info := fmt.Sprintf("%s   moves %d", s.g.Rules.Name(), s.g.MoveCount)
+	if s.dailyDay > 0 {
+		info = fmt.Sprintf("%s   Daily #%d   moves %d", s.g.Rules.Name(), s.dailyDay, s.g.MoveCount)
+	}
 	drawText(dst, info, W-16-textWidth(info, 1), 9, colDim, 1)
 }
