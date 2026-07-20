@@ -36,6 +36,7 @@ to WebAssembly.
 | tap stock | deal / recycle |
 | double-tap | send to foundation |
 | `U` / `Cmd+Z` | undo |
+| `H` | hint (flashes a useful move) |
 | `A` | auto-finish |
 | `N` | new deal |
 | `R` | restart the same deal |

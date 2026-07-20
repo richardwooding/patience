@@ -80,6 +80,11 @@ goldens depend on that.
   headless screenshots reach table scenes (headless Chrome needs
   `--use-angle=swiftshader --enable-unsafe-swiftshader` for WebGL2).
 - Stats are build-tagged: localStorage (js) / `os.UserConfigDir()` (native).
+- `Game.Hint()` ranks legal card moves (expose face-down > safe send >
+  build on a non-empty pile > any) and drives the `H` key / hint button,
+  which blinks `accentOutline` on the move's source and destination. The
+  dead-game notice comes from `AnyLegalMove`, recomputed only when
+  `MoveCount` changes (it clones the game, so it stays off the per-frame path).
 
 ## Deploy
 

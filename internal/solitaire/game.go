@@ -171,6 +171,77 @@ func (g *Game) flipExposed() {
 	}
 }
 
+// Hint returns a suggested useful move, preferring (in order) moves that
+// expose a face-down card, safe foundation sends, and builds onto a non-empty
+// pile, falling back to any legal move. It reports false when no card move
+// exists (the stock, if any, may still be tappable — see AnyLegalMove).
+func (g *Game) Hint() (Move, bool) {
+	moves := g.legalMoves()
+	for _, m := range moves {
+		if g.exposesFaceDown(m) {
+			return m, true
+		}
+	}
+	if s, ok := g.firstSafeSend(); ok {
+		return s, true
+	}
+	for _, m := range moves {
+		if g.buildsOnPile(m) {
+			return m, true
+		}
+	}
+	if len(moves) > 0 {
+		return moves[0], true
+	}
+	return Move{}, false
+}
+
+// legalMoves lists every legal card move on the board (no stock taps).
+func (g *Game) legalMoves() []Move {
+	var moves []Move
+	for src := range g.Piles {
+		for idx := range g.Piles[src].Cards {
+			if g.Rules.CanPickUp(g, src, idx) {
+				moves = append(moves, g.dropsFor(src, idx)...)
+			}
+		}
+	}
+	return moves
+}
+
+// dropsFor lists the legal destinations for the run at Piles[src].Cards[idx:].
+func (g *Game) dropsFor(src, idx int) []Move {
+	var moves []Move
+	for dst := range g.Piles {
+		if dst != src && g.Rules.CanDrop(g, src, idx, dst) {
+			moves = append(moves, Move{Src: src, Idx: idx, Dst: dst})
+		}
+	}
+	return moves
+}
+
+// exposesFaceDown reports whether m uncovers a face-down tableau card.
+func (g *Game) exposesFaceDown(m Move) bool {
+	src := &g.Piles[m.Src]
+	return src.Kind == Tableau && m.Idx > 0 && !src.Cards[m.Idx-1].FaceUp()
+}
+
+// firstSafeSend returns the first safe foundation send, computing the
+// board-wide safe set once (it does not depend on any single candidate move).
+func (g *Game) firstSafeSend() (Move, bool) {
+	if sends := safeFoundationSends(g); len(sends) > 0 {
+		return sends[0], true
+	}
+	return Move{}, false
+}
+
+// buildsOnPile reports whether m stacks onto a non-empty, non-foundation pile
+// (consolidation), as opposed to moving into empty space.
+func (g *Game) buildsOnPile(m Move) bool {
+	dst := &g.Piles[m.Dst]
+	return dst.Kind != Foundation && len(dst.Cards) > 0
+}
+
 // AnyLegalMove reports whether any pickup/drop or stock action remains.
 func (g *Game) AnyLegalMove() bool {
 	for src := range g.Piles {

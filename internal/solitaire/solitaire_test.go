@@ -299,6 +299,44 @@ func TestSafeFoundationSends(t *testing.T) {
 	}
 }
 
+func TestHint(t *testing.T) {
+	clear := func(g *Game) {
+		for i := range g.Piles {
+			setPile(g, i)
+		}
+	}
+
+	// Uncovering a face-down card is the most useful move and wins.
+	g := New(NewKlondike(1), 5)
+	clear(g)
+	setPile(g, 6, down(Clubs, 3), up(Spades, 5)) // 5♠ movable, 3♣ hidden beneath
+	setPile(g, 7, up(Hearts, 6))                 // accepts 5♠
+	setPile(g, 8, up(Diamonds, 9))               // a distractor build target
+	if m, ok := g.Hint(); !ok || m.Src != 6 || m.Dst != 7 {
+		t.Errorf("hint should uncover the hidden 3♣ (6→7), got %+v ok=%v", m, ok)
+	}
+
+	// With nothing to uncover, a safe foundation send beats a plain build.
+	clear(g)
+	setPile(g, 6, up(Spades, 1)) // A♠ — a safe send (rank ≤ 2)
+	setPile(g, 7, up(Hearts, 6)) // build target
+	setPile(g, 8, up(Spades, 5)) // 5♠ could build on 6♥ instead
+	if m, ok := g.Hint(); !ok || g.Piles[m.Dst].Kind != Foundation {
+		t.Errorf("hint should prefer the safe foundation send, got %+v ok=%v", m, ok)
+	}
+
+	// A stuck board yields no hint and no legal move.
+	clear(g)
+	setPile(g, 6, up(Spades, 5))
+	setPile(g, 7, up(Spades, 7)) // non-adjacent, same color; nothing plays
+	if m, ok := g.Hint(); ok {
+		t.Errorf("expected no hint on a stuck board, got %+v", m)
+	}
+	if g.AnyLegalMove() {
+		t.Error("expected a dead board (empty stock, no card moves)")
+	}
+}
+
 // --- undo round-trips over random playouts, all configs ---
 
 func TestUndoRoundTrip(t *testing.T) {

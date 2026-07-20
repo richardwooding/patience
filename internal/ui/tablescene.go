@@ -39,7 +39,15 @@ type tableScene struct {
 	toastTTL int
 	cascade  *cascade
 
-	btnNew, btnRestart, btnUndo, btnAuto, btnMenu button
+	// hint highlight
+	hintSrc, hintDst int
+	hintTTL          int
+
+	// dead-game detection, recomputed only when the board changes
+	dead          bool
+	deadCheckedAt int
+
+	btnNew, btnRestart, btnUndo, btnHint, btnAuto, btnMenu button
 }
 
 func newTableScene(rules solitaire.Rules, seed uint64) *tableScene {
@@ -49,6 +57,7 @@ func newTableScene(rules solitaire.Rules, seed uint64) *tableScene {
 		layout:        layoutFor(rules),
 		autoLeft:      -1,
 		dropCandidate: -1,
+		deadCheckedAt: -1,
 	}
 	stats.Record(string(rules.ID()), stats.Dealt)
 	const bw, bh, gap = 76, 24, 8
@@ -60,6 +69,7 @@ func newTableScene(rules solitaire.Rules, seed uint64) *tableScene {
 	place(&s.btnNew, "new")
 	place(&s.btnRestart, "restart")
 	place(&s.btnUndo, "undo")
+	place(&s.btnHint, "hint")
 	place(&s.btnAuto, "auto")
 	place(&s.btnMenu, "menu")
 	return s
@@ -73,6 +83,9 @@ func (s *tableScene) Update(g *Game) error {
 	}
 	if s.toastTTL > 0 {
 		s.toastTTL--
+	}
+	if s.hintTTL > 0 {
+		s.hintTTL--
 	}
 	s.updateAutoComplete()
 
@@ -93,7 +106,22 @@ func (s *tableScene) Update(g *Game) error {
 	if s.g.Won() && s.cascade == nil {
 		s.win()
 	}
+	s.checkDeadGame()
 	return nil
+}
+
+// checkDeadGame recomputes the no-moves-left flag, but only when the board has
+// changed since the last check — AnyLegalMove clones the game, so this stays
+// off the hot path while the position is static.
+func (s *tableScene) checkDeadGame() {
+	if s.dragging || len(s.flights) > 0 || s.autoLeft >= 0 || s.g.Won() {
+		return
+	}
+	if s.g.MoveCount == s.deadCheckedAt {
+		return
+	}
+	s.deadCheckedAt = s.g.MoveCount
+	s.dead = !s.g.AnyLegalMove()
 }
 
 func (s *tableScene) handleKeys(g *Game) bool {
@@ -108,6 +136,8 @@ func (s *tableScene) handleKeys(g *Game) bool {
 		return true
 	case inpututil.IsKeyJustPressed(ebiten.KeyA):
 		s.startAutoComplete()
+	case inpututil.IsKeyJustPressed(ebiten.KeyH):
+		s.hint()
 	case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 		g.scene = newMenuScene()
 		return true
@@ -127,13 +157,50 @@ func (s *tableScene) say(msg string) {
 	s.toastTTL = 150
 }
 
+// hint flashes an outline around a useful move, or the stock when a deal is
+// the only thing left to try.
+func (s *tableScene) hint() {
+	if s.dragging || s.cascade != nil || len(s.flights) > 0 {
+		return
+	}
+	if m, ok := s.g.Hint(); ok {
+		s.hintSrc, s.hintDst, s.hintTTL = m.Src, m.Dst, 96
+		return
+	}
+	if si, ok := s.stockPile(); ok && s.g.AnyLegalMove() {
+		s.hintSrc, s.hintDst, s.hintTTL = si, si, 96
+		return
+	}
+	s.say("no moves left — undo, restart, or new deal")
+}
+
+// stockPile returns the stock pile index, if the variant has one.
+func (s *tableScene) stockPile() (int, bool) {
+	for i := range s.g.Piles {
+		if s.g.Piles[i].Kind == solitaire.Stock {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+// pileHiRect is the rectangle to outline for pile pi — its top card, or the
+// empty slot.
+func (s *tableScene) pileHiRect(pi int) image.Rectangle {
+	if n := len(s.g.Piles[pi].Cards); n > 0 {
+		return s.layout.cardRect(s.g, pi, n-1)
+	}
+	return s.layout.slotRect(pi)
+}
+
 // --- press / drag / drop ---
 
 func (s *tableScene) beginPress(pos image.Point) {
+	s.hintTTL = 0 // any interaction clears a lingering hint
 	// toolbar first
 	taps := []image.Point{pos}
 	switch {
-	case s.btnNew.hit(taps), s.btnRestart.hit(taps), s.btnUndo.hit(taps), s.btnAuto.hit(taps), s.btnMenu.hit(taps):
+	case s.btnNew.hit(taps), s.btnRestart.hit(taps), s.btnUndo.hit(taps), s.btnHint.hit(taps), s.btnAuto.hit(taps), s.btnMenu.hit(taps):
 		// handled on release via endPress toolbar check; mark pressed
 		s.pressed = true
 		s.pressPos = pos
@@ -209,6 +276,9 @@ func (s *tableScene) endPress(g *Game, pos image.Point) {
 		return
 	case s.btnUndo.hit(taps):
 		s.undo()
+		return
+	case s.btnHint.hit(taps):
+		s.hint()
 		return
 	case s.btnAuto.hit(taps):
 		s.startAutoComplete()
@@ -368,9 +438,32 @@ func (s *tableScene) Draw(dst *ebiten.Image) {
 		op.GeoM.Translate(float64(p.X), float64(p.Y))
 		dst.DrawImage(f.sprite, op)
 	}
-	if s.toastTTL > 0 {
-		drawText(dst, s.toast, (W-textWidth(s.toast, 1))/2, H-22, colAmber, 1)
+	s.drawHint(dst)
+	s.drawStatus(dst)
+}
+
+// drawHint blinks an outline around the suggested move's source and
+// destination while the hint is live.
+func (s *tableScene) drawHint(dst *ebiten.Image) {
+	if s.hintTTL <= 0 || (s.hintTTL/8)%2 == 1 {
+		return
 	}
+	accentOutline(dst, s.pileHiRect(s.hintSrc))
+	if s.hintDst != s.hintSrc {
+		accentOutline(dst, s.pileHiRect(s.hintDst))
+	}
+}
+
+// drawStatus draws the bottom-line message: the dead-game notice takes
+// precedence over a transient toast.
+func (s *tableScene) drawStatus(dst *ebiten.Image) {
+	msg, col := s.toast, colAmber
+	if s.dead {
+		msg = "no moves left — undo, restart, or new deal"
+	} else if s.toastTTL <= 0 {
+		return
+	}
+	drawText(dst, msg, (W-textWidth(msg, 1))/2, H-22, col, 1)
 }
 
 // hiddenDepths counts, per pile, top cards suppressed by in-flight arrivals
@@ -403,11 +496,7 @@ func (s *tableScene) drawPile(dst *ebiten.Image, pi, hide int) {
 		dst.DrawImage(sprite(p.Cards[i]), op)
 	}
 	if s.dropCandidate == pi {
-		r := s.layout.slotRect(pi)
-		if n := len(p.Cards); n > 0 {
-			r = s.layout.cardRect(s.g, pi, n-1)
-		}
-		accentOutline(dst, r)
+		accentOutline(dst, s.pileHiRect(pi))
 	}
 }
 
@@ -434,6 +523,7 @@ func (s *tableScene) drawToolbar(dst *ebiten.Image) {
 	s.btnNew.draw(dst, false)
 	s.btnRestart.draw(dst, false)
 	s.btnUndo.draw(dst, s.g.CanUndo())
+	s.btnHint.draw(dst, s.hintTTL > 0)
 	s.btnAuto.draw(dst, s.g.Rules.AutoCompleteReady(s.g))
 	s.btnMenu.draw(dst, false)
 	info := fmt.Sprintf("%s   moves %d", s.g.Rules.Name(), s.g.MoveCount)
