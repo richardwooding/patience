@@ -144,8 +144,11 @@ func (m *menuScene) rowStat(id string) string {
 		if d.SolvedToday(m.today) {
 			return fmt.Sprintf("solved today · streak %d", d.Streak)
 		}
+		if s := d.CurrentStreak(m.today); s > 0 {
+			return fmt.Sprintf("streak %d · play today", s)
+		}
 		if d.Wins > 0 {
-			return fmt.Sprintf("streak %d · best streak %d", d.Streak, d.MaxStreak)
+			return fmt.Sprintf("best streak %d · play today", d.MaxStreak)
 		}
 		return "play today's deal"
 	}

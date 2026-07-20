@@ -31,6 +31,42 @@ func TestApplyWinStreak(t *testing.T) {
 	if !d.SolvedToday(15) || d.SolvedToday(16) {
 		t.Fatalf("SolvedToday wrong: %+v", d)
 	}
+
+	// CurrentStreak is live on the last win day and the day after, but 0 once
+	// a day has been missed.
+	if d.CurrentStreak(15) != 1 || d.CurrentStreak(16) != 1 {
+		t.Fatalf("streak should be live at 15/16: %+v", d)
+	}
+	if d.CurrentStreak(17) != 0 {
+		t.Fatalf("streak should read 0 after a missed day: %+v", d)
+	}
+}
+
+func TestApplyWinHistoricalReplay(t *testing.T) {
+	// Build a streak at day 15.
+	var d Daily
+	d = applyWin(d, 14, 100)
+	d = applyWin(d, 15, 100) // streak 2, LastWinDay 15, best 100
+	before := d
+
+	// Winning a past daily (shared ?d= link) must not touch the streak or move
+	// LastWinDay backwards — but it still counts and can improve best moves.
+	d = applyWin(d, 5, 60)
+	if d.Streak != before.Streak || d.LastWinDay != before.LastWinDay || d.MaxStreak != before.MaxStreak {
+		t.Fatalf("historical replay disturbed the streak: %+v (was %+v)", d, before)
+	}
+	if d.Wins != before.Wins+1 {
+		t.Fatalf("historical win should still count: %+v", d)
+	}
+	if d.BestMoves != 60 {
+		t.Fatalf("historical replay should improve best moves: %+v", d)
+	}
+
+	// The current streak can still extend the day after the real last win.
+	d = applyWin(d, 16, 100)
+	if d.Streak != 3 {
+		t.Fatalf("streak should extend to 3 after the historical detour: %+v", d)
+	}
 }
 
 func TestLegacyStatsMigration(t *testing.T) {

@@ -28,6 +28,17 @@ type Daily struct {
 // SolvedToday reports whether day's daily has already been won.
 func (d Daily) SolvedToday(day int) bool { return d.Wins > 0 && d.LastWinDay == day }
 
+// CurrentStreak is the live streak as of today: the stored streak only while
+// the run can still continue (today is the last win, or the day right after),
+// otherwise 0. This keeps the menu from showing a stale streak once a day has
+// been missed but before the next win resets it.
+func (d Daily) CurrentStreak(today int) int {
+	if d.Wins > 0 && (today == d.LastWinDay || today == d.LastWinDay+1) {
+		return d.Streak
+	}
+	return 0
+}
+
 // Event mutates an Entry.
 type Event func(*Entry)
 
@@ -55,6 +66,14 @@ func applyWin(d Daily, day, moves int) Daily {
 		}
 	}
 	if d.SolvedToday(day) {
+		better()
+		return d
+	}
+	// A historical replay (via a shared ?d= link for a past day) counts as a
+	// win and can improve best moves, but must never disturb the current
+	// streak or move LastWinDay backwards.
+	if d.Wins > 0 && day < d.LastWinDay {
+		d.Wins++
 		better()
 		return d
 	}
