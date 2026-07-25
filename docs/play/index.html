@@ -29,6 +29,12 @@
   }
   #loading .dim { color: #5a5470; }
   canvas { outline: none; }
+  #feedback {
+    position: fixed; bottom: 8px; right: 10px; z-index: 10;
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #6b6480; text-decoration: none; opacity: 0.7;
+  }
+  #feedback:hover { color: #a78bfa; opacity: 1; }
 </style>
 </head>
 <body>
@@ -36,6 +42,8 @@
   <div>patience</div>
   <div class="dim" id="status">loading wasm…</div>
 </div>
+<a id="feedback" href="https://github.com/richardwooding/patience/issues/new?labels=feedback&amp;title=Feedback%3A%20&amp;body=Thanks%20for%20trying%20patience%20%E2%80%94%20a%20couple%20of%20lines%20is%20plenty.%0A%0A-%20What%20were%20you%20doing%3F%0A-%20What%20would%20make%20it%20better%3F%0A-%20Which%20variant%2C%20browser%2C%20and%20device%3F"
+   target="_blank" rel="noopener noreferrer">Feedback</a>
 <script src="wasm_exec.js"></script>
 <script>
 (function () {

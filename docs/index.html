@@ -34,6 +34,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* page-local: card colors in the hero terminal */
   .gl-term .red { color: #e04a6e; }
   .gl-term .blk { color: var(--gl-fg); }
+  /* footer author credit */
+  .foot-by { display: inline-flex; align-items: center; gap: 8px; }
+  .foot-by img { border-radius: 50%; border: 1px solid var(--gl-border); }
+  .foot-by strong { color: var(--gl-fg); font-weight: 700; }
 </style>
 </head>
 <body class="gl">
@@ -196,9 +200,14 @@ d  <span class="c">daily deal</span>   esc  <span class="c">menu</span></pre>
 <footer class="gl-footer">
   <div class="gl-wrap">
     <span class="gl-brand" style="font-size:.98rem">patience · MIT · <span data-gl-year></span></span>
+    <a class="foot-by" href="https://richardwooding.github.io">
+      <img src="author.png" alt="" width="24" height="24" loading="lazy">
+      A game by <strong>Richard Wooding</strong>
+    </a>
     <nav class="gl-fnav">
       <a href="https://github.com/richardwooding/patience">GitHub</a>
       <a href="play/">Play</a>
+      <a href="https://github.com/richardwooding/patience/issues/new?labels=feedback&amp;title=Feedback%3A%20&amp;body=Thanks%20for%20trying%20patience%20%E2%80%94%20a%20couple%20of%20lines%20is%20plenty.%0A%0A-%20What%20were%20you%20doing%3F%0A-%20What%20would%20make%20it%20better%3F%0A-%20Which%20variant%2C%20browser%2C%20and%20device%3F">Feedback</a>
       <a href="https://richardwooding.github.io/">All projects</a>
     </nav>
   </div>
