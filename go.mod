@@ -1,6 +1,6 @@
 module github.com/richardwooding/patience
 
-go 1.26.2
+go 1.27.0
 
 require (
 	github.com/hajimehoshi/bitmapfont/v4 v4.1.1
