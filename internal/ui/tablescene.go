@@ -548,7 +548,7 @@ func (s *tableScene) drawPile(dst *ebiten.Image, pi, hide int) {
 		op.GeoM.Translate(float64(slot.X), float64(slot.Y))
 		dst.DrawImage(slotSprite, op)
 	}
-	for i := 0; i < visible; i++ {
+	for i := range visible {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(positions[i].X), float64(positions[i].Y))
 		dst.DrawImage(sprite(p.Cards[i]), op)

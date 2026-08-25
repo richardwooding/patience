@@ -52,7 +52,7 @@ func TestDailySeedDistinct(t *testing.T) {
 	// must not collide — otherwise "everyone's daily" would repeat.
 	seen := map[uint64]string{}
 	for _, id := range []VariantID{Klondike1, Klondike3, FreeCellV, Spider1, Spider2, Spider4} {
-		for day := 0; day < 400; day++ {
+		for day := range 400 {
 			s := DailySeed(id, day)
 			label := string(id) + "/" + time.Duration(day).String()
 			if prev, ok := seen[s]; ok {

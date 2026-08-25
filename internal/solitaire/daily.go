@@ -37,7 +37,7 @@ func DailySeed(id VariantID, day int) uint64 {
 	mix(':')
 	// Offset the day so Daily #0 is not a trivial all-zero input.
 	d := uint64(day) + 0x9E3779B97F4A7C15
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		mix(byte(d >> (8 * i)))
 	}
 	// splitmix64 finalizer for a good avalanche.

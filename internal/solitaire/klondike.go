@@ -1,5 +1,7 @@
 package solitaire
 
+import "slices"
+
 // Klondike: 7 tableau columns dealt 1..7 with tops face-up, stock/waste with
 // draw-1 or draw-3, four foundations. Unlimited recycles.
 type Klondike struct {
@@ -90,8 +92,8 @@ func (k *Klondike) TapStock(g *Game) error {
 		if len(waste.Cards) == 0 {
 			return ErrStockEmpty
 		}
-		for i := len(waste.Cards) - 1; i >= 0; i-- {
-			stock.Cards = append(stock.Cards, waste.Cards[i].WithFaceUp(false))
+		for _, v := range slices.Backward(waste.Cards) {
+			stock.Cards = append(stock.Cards, v.WithFaceUp(false))
 		}
 		waste.Cards = waste.Cards[:0]
 		g.Recycles++

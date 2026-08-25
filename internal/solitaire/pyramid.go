@@ -1,5 +1,7 @@
 package solitaire
 
+import "slices"
+
 // Pyramid: 28 cards dealt in a seven-row triangle, plus a stock/waste and a
 // foundation. A card is exposed once both cards overlapping it below are gone.
 // Remove exposed cards in pairs whose ranks sum to 13 (a King is 13 on its
@@ -119,8 +121,8 @@ func (p *Pyramid) TapStock(g *Game) error {
 		if len(waste.Cards) == 0 {
 			return ErrStockEmpty
 		}
-		for i := len(waste.Cards) - 1; i >= 0; i-- {
-			stock.Cards = append(stock.Cards, waste.Cards[i].WithFaceUp(false))
+		for _, v := range slices.Backward(waste.Cards) {
+			stock.Cards = append(stock.Cards, v.WithFaceUp(false))
 		}
 		waste.Cards = waste.Cards[:0]
 		g.Recycles++

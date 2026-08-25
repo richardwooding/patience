@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 	"math/rand/v2"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/richardwooding/patience/internal/solitaire"
@@ -38,8 +39,8 @@ func newCascade(g *solitaire.Game, tl tableLayout) *cascade {
 		if g.Piles[pi].Kind != solitaire.Foundation {
 			continue
 		}
-		for i := len(g.Piles[pi].Cards) - 1; i >= 0; i-- {
-			c.queue = append(c.queue, g.Piles[pi].Cards[i].WithFaceUp(true))
+		for _, v := range slices.Backward(g.Piles[pi].Cards) {
+			c.queue = append(c.queue, v.WithFaceUp(true))
 			c.origins = append(c.origins, tl.piles[pi].pos)
 		}
 	}
